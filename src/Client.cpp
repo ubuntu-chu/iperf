@@ -70,7 +70,20 @@ Client::Client( thread_Settings *inSettings ) {
     mBuf = NULL;
 
     // initialize buffer
-    mBuf = new char[ mSettings->mBufLen ];
+	// udp crc模式时  尾部添加两个字节的crc
+	if (isUDPCRC(mSettings)){
+		if (mSettings->mBufLen < CRC_LEN){
+			LOG_MSG("s\n", "mSettings->mBuf < CRC_LEN");
+			exit(1);
+		}
+		LOG_MSG("%s\n", "udp_crc client alloc more 2 bytes");
+		mSettings->mBufLen += CRC_LEN;	
+	}
+    mBuf = new char[mSettings->mBufLen];
+#ifdef DBG_IN_UDP_CRC
+	LOG_MSG("client alloc %d bytes\n", mSettings->mBufLen);
+#endif
+
     pattern( mBuf, mSettings->mBufLen );
     if ( isFileInput( mSettings ) ) {
         if ( !isSTDIN( mSettings ) )
@@ -211,6 +224,9 @@ void Client::Run( void ) {
 
     char* readAt = mBuf;
 
+	bool  udp_crc = isUDPCRC(mSettings);
+	union crc crc_value;
+
 #if HAVE_THREAD
     if ( !isUDP( mSettings ) ) {
 	RunTCP();
@@ -261,7 +277,7 @@ void Client::Run( void ) {
     reportstruct->packetID = 0;
 
     lastPacketTime.setnow();
-    
+
     do {
 
         // Test case: drop 17 packets and send 2 out-of-order: 
@@ -295,11 +311,23 @@ void Client::Run( void ) {
         // Read the next data block from 
         // the file if it's file input 
         if ( isFileInput( mSettings ) ) {
+			//从文件中读取时 
             Extractor_getNextDataBlock( readAt, mSettings ); 
             canRead = Extractor_canRead( mSettings ) != 0; 
-        } else
+        } else{
+			//使用固定的buf内容  
             canRead = true; 
+		}
 
+		//在此计算crc
+		if (udp_crc){
+			int		crc_len		= mSettings->mBufLen - CRC_LEN;
+			int		crc_len_tmp		= crc_len;
+			crc_value.crc16_	= utl_crc16((uint8 *)mBuf, crc_len);
+			mBuf[crc_len++]		= crc_value.crc_hl_.crc_high_;
+			mBuf[crc_len]		= crc_value.crc_hl_.crc_low_;
+			fprintf( stderr,"len = %d, crc = 0x%x\n", crc_len_tmp, crc_value.crc16_);
+		}
         // perform write 
         currLen = write( mSettings->mSock, mBuf, mSettings->mBufLen ); 
         if ( currLen < 0 && errno != ENOBUFS ) {

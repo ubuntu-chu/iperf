@@ -70,8 +70,20 @@ Server::Server( thread_Settings *inSettings ) {
     mSettings = inSettings;
     mBuf = NULL;
 
+	// udp crc模式时  尾部添加两个字节的crc
+	if (isUDPCRC(mSettings)){
+		if (mSettings->mBufLen < CRC_LEN){
+			LOG_MSG("s\n", "mSettings->mBuf < CRC_LEN");
+			exit(1);
+		}
+		LOG_MSG("%s\n", "udp_crc client alloc more 2 bytes");
+		mSettings->mBufLen += CRC_LEN;	
+	}
     // initialize buffer
     mBuf = new char[ mSettings->mBufLen ];
+#ifdef DBG_IN_UDP_CRC
+	LOG_MSG("client alloc %d bytes\n", mSettings->mBufLen);
+#endif
     FAIL_errno( mBuf == NULL, "No memory for buffer\n", mSettings );
 }
 
@@ -100,6 +112,8 @@ void Server::Run( void ) {
     long currLen; 
     max_size_t totLen = 0;
     struct UDP_datagram* mBuf_UDP  = (struct UDP_datagram*) mBuf; 
+	bool  udp_crc = isUDPCRC(mSettings);
+	union crc crc_value;
 
     ReportStruct *reportstruct = NULL;
 

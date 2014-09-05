@@ -69,6 +69,23 @@
 extern "C" {
 #endif
 
+#define DBG_IN_UDP_CRC   
+//crc 16
+#define CRC_LEN				(2)
+#define LOG_MSG(d,s)     fprintf( stderr, d, s)
+
+typedef unsigned short int uint16;
+typedef unsigned char uint8;
+
+union crc{
+	uint16		crc16_;
+	struct crc_hl{
+		uint8	crc_high_;
+		uint8   crc_low_;
+	};
+	struct crc_hl crc_hl_;
+};
+
 // server/client mode
 typedef enum ThreadMode {
     kMode_Unknown = 0,
@@ -171,6 +188,8 @@ typedef struct thread_Settings {
     Socklen_t size_local;
     nthread_t mTID;
     char* mCongestion;
+
+	bool crc_udp;						//udp发包 是否校验crc
 #if defined( HAVE_WIN32_THREAD )
     HANDLE mHandle;
 #endif
@@ -222,6 +241,9 @@ typedef struct thread_Settings {
 #define isSTDIN(settings)          ((settings->flags & FLAG_STDIN) != 0)
 #define isSTDOUT(settings)         ((settings->flags & FLAG_STDOUT) != 0)
 #define isSuggestWin(settings)     ((settings->flags & FLAG_SUGGESTWIN) != 0)
+
+#define isUDPCRC(settings)         (((settings->flags & FLAG_UDP) != 0)&&(settings->crc_udp==true))
+
 #define isUDP(settings)            ((settings->flags & FLAG_UDP) != 0)
 #define isModeTime(settings)       ((settings->flags & FLAG_MODETIME) != 0)
 #define isReport(settings)         ((settings->flags & FLAG_REPORTSETTINGS) != 0)
@@ -417,6 +439,8 @@ typedef struct server_hdr {
 
     // generate client header for server
     void Settings_GenerateClientHdr( thread_Settings *client, client_hdr *hdr );
+
+uint16 utl_crc16(uint8 *name, uint16 size);
 
 #ifdef __cplusplus
 } /* end extern "C" */
