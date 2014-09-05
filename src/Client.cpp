@@ -73,15 +73,15 @@ Client::Client( thread_Settings *inSettings ) {
 	// udp crc模式时  尾部添加两个字节的crc
 	if (isUDPCRC(mSettings)){
 		if (mSettings->mBufLen < CRC_LEN){
-			LOG_MSG("s\n", "mSettings->mBuf < CRC_LEN");
+			fprintf( stderr, "s\n", "mSettings->mBuf < CRC_LEN");
 			exit(1);
 		}
-		LOG_MSG("%s\n", "udp_crc client alloc more 2 bytes");
+		fprintf( stderr, "%s\n", "udp_crc client alloc more 2 bytes crc");
 		mSettings->mBufLen += CRC_LEN;	
 	}
     mBuf = new char[mSettings->mBufLen];
 #ifdef DBG_IN_UDP_CRC
-	LOG_MSG("client alloc %d bytes\n", mSettings->mBufLen);
+	fprintf( stderr, "client alloc %d bytes\n", mSettings->mBufLen);
 #endif
 
     pattern( mBuf, mSettings->mBufLen );
@@ -322,11 +322,20 @@ void Client::Run( void ) {
 		//在此计算crc
 		if (udp_crc){
 			int		crc_len		= mSettings->mBufLen - CRC_LEN;
-			int		crc_len_tmp		= crc_len;
 			crc_value.crc16_	= utl_crc16((uint8 *)mBuf, crc_len);
+		#ifdef DBG_IN_UDP_CRC
+			fprintf( stderr,"len = %d, crc = 0x%04x\n", crc_len, crc_value.crc16_);
+		#endif
+		#ifdef ERR_CRC_TEST
+			crc_value.crc_hl_.crc_low_++;
+		#endif
+		#if 1
+			//此种方法 移植性好  不需要考虑大小端的问题
 			mBuf[crc_len++]		= crc_value.crc_hl_.crc_high_;
 			mBuf[crc_len]		= crc_value.crc_hl_.crc_low_;
-			fprintf( stderr,"len = %d, crc = 0x%x\n", crc_len_tmp, crc_value.crc16_);
+		#else
+			memcpy(&mBuf[crc_len], &crc_value.crc16_, sizeof(crc_value.crc16_));
+		#endif
 		}
         // perform write 
         currLen = write( mSettings->mSock, mBuf, mSettings->mBufLen ); 
@@ -350,6 +359,10 @@ void Client::Run( void ) {
                 mSettings->mAmount = 0;
             }
         }
+
+	#ifdef CLIENT_SLEEP_IN_UDP_CRC
+		delay_ms(2000);
+	#endif
 
     } while ( ! (sInterupted  || 
                  (mMode_Time   &&  mEndTime.before( reportstruct->packetTime ))  || 

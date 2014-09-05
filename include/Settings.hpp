@@ -69,10 +69,14 @@
 extern "C" {
 #endif
 
-#define DBG_IN_UDP_CRC   
-//crc 16
+//调试信息宏定义 
+//#define DBG_IN_UDP_CRC   
+//客户端每隔2s 发送一次 
+//#define CLIENT_SLEEP_IN_UDP_CRC   
+//错误crc校验值测试
+//#define ERR_CRC_TEST
+//crc 16  crc长度
 #define CRC_LEN				(2)
-#define LOG_MSG(d,s)     fprintf( stderr, d, s)
 
 typedef unsigned short int uint16;
 typedef unsigned char uint8;
@@ -190,6 +194,7 @@ typedef struct thread_Settings {
     char* mCongestion;
 
 	bool crc_udp;						//udp发包 是否校验crc
+	bool crc_log;						//当服务器端判断接收到的crc不正确时 是否打印出log
 #if defined( HAVE_WIN32_THREAD )
     HANDLE mHandle;
 #endif

@@ -73,16 +73,16 @@ Server::Server( thread_Settings *inSettings ) {
 	// udp crc模式时  尾部添加两个字节的crc
 	if (isUDPCRC(mSettings)){
 		if (mSettings->mBufLen < CRC_LEN){
-			LOG_MSG("s\n", "mSettings->mBuf < CRC_LEN");
+			fprintf( stderr, "s\n", "mSettings->mBuf < CRC_LEN");
 			exit(1);
 		}
-		LOG_MSG("%s\n", "udp_crc client alloc more 2 bytes");
+		fprintf( stderr, "%s\n", "udp_crc client alloc more 2 bytes crc");
 		mSettings->mBufLen += CRC_LEN;	
 	}
     // initialize buffer
     mBuf = new char[ mSettings->mBufLen ];
 #ifdef DBG_IN_UDP_CRC
-	LOG_MSG("client alloc %d bytes\n", mSettings->mBufLen);
+	fprintf( stderr, "client alloc %d bytes\n", mSettings->mBufLen);
 #endif
     FAIL_errno( mBuf == NULL, "No memory for buffer\n", mSettings );
 }
@@ -109,11 +109,13 @@ void Server::Sig_Int( int inSigno ) {
  * Does not close the socket. 
  * ------------------------------------------------------------------- */ 
 void Server::Run( void ) {
-    long currLen; 
+    long currLen;
     max_size_t totLen = 0;
     struct UDP_datagram* mBuf_UDP  = (struct UDP_datagram*) mBuf; 
 	bool  udp_crc = isUDPCRC(mSettings);
+	bool  udp_crc_log = mSettings->crc_log;
 	union crc crc_value;
+	int   end = 0;
 
     ReportStruct *reportstruct = NULL;
 
@@ -141,15 +143,52 @@ void Server::Run( void ) {
             if ( reportstruct->packetID < 0 ) {
                 reportstruct->packetID = -reportstruct->packetID;
                 currLen = -1; 
+				end		= 1;
             }
+			if ( isUDP (mSettings)) {
+				if (udp_crc && (end == 0)){
+				//	if (currLen == mSettings->mBufLen)
+					{
+						//计算包的校验和  若校验和错误  则丢弃此包  不进行上报
+						int		crc_len		= currLen - CRC_LEN;
+						crc_value.crc16_	= utl_crc16((uint8 *)mBuf, crc_len);
+					#if 1
+						//此种方法 移植性好  不需要考虑大小端的问题
+						if (crc_value.crc_hl_.crc_high_ != (uint8)mBuf[crc_len] ||
+								crc_value.crc_hl_.crc_low_ != (uint8)mBuf[crc_len+1]){
+					#else 
+						{
+							uint16  crc_mBuf;
+							memcpy(&crc_mBuf, &mBuf[crc_len], sizeof(crc_value.crc16_));
+						}
+						if (crc_value.crc16_ != crc_mBuf){
+					#endif
+							if (udp_crc_log){
+								fprintf( stderr,"calc crc_high[0x%02x] crc_low[0x%02x] expect crc_hig[0x%02x] crc_low[0x%02x], drop this udp package\n", crc_value.crc_hl_.crc_high_, crc_value.crc_hl_.crc_low_, (uint8)mBuf[crc_len], (uint8)mBuf[crc_len+1]);
+							}
+						}else {
+							ReportPacket( mSettings->reporthdr, reportstruct );
+						}
+					#ifdef DBG_IN_UDP_CRC   
+						fprintf( stderr,"len = %d, crc = 0x%04x\n", crc_len, crc_value.crc16_);
+					#endif
 
-	    if ( isUDP (mSettings)) {
-		ReportPacket( mSettings->reporthdr, reportstruct );
-            } else if ( !isUDP (mSettings) && mSettings->mInterval > 0) {
-                reportstruct->packetLen = currLen;
-                gettimeofday( &(reportstruct->packetTime), NULL );
-                ReportPacket( mSettings->reporthdr, reportstruct );
-            }
+					}
+			#if 0
+					else {
+					#ifdef DBG_IN_UDP_CRC   
+						fprintf( stderr,"currLen[%d] != mBufLen[%d], drop this udp package\n", currLen, mSettings->mBufLen);
+					#endif
+					}
+			#endif
+				}else {
+					ReportPacket( mSettings->reporthdr, reportstruct );
+				}
+			} else if ( !isUDP (mSettings) && mSettings->mInterval > 0) {
+				reportstruct->packetLen = currLen;
+				gettimeofday( &(reportstruct->packetTime), NULL );
+				ReportPacket( mSettings->reporthdr, reportstruct );
+			}
 
 
 

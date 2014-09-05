@@ -74,3 +74,19 @@ void delay_loop(unsigned long usec)
             break;
         }
 }
+
+void delay_ms(unsigned long msec)
+{
+    struct timespec requested, remaining;
+
+    requested.tv_sec  = msec/1000;
+    requested.tv_nsec = (msec%1000) * 1000L;
+
+    while (nanosleep(&requested, &remaining) == -1)
+        if (errno == EINTR)
+            requested = remaining;
+        else {
+            WARN_errno(1, "nanosleep");
+            break;
+        }
+}

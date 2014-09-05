@@ -54,5 +54,6 @@
 #define DELAY_H
 
 void delay_loop( unsigned long usecs );
+void delay_ms(unsigned long msec);
 
 #endif /* DELAY_H */

@@ -83,7 +83,9 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
 
 const struct option long_options[] =
 {
-{"crcudp",     no_argument, NULL, 'a'},
+{"crc_udp",     no_argument, NULL, 'a'},
+{"crc_log",     no_argument, NULL, 'e'},
+
 {"singleclient",     no_argument, NULL, '1'},
 {"bandwidth",  required_argument, NULL, 'b'},
 {"client",     required_argument, NULL, 'c'},
@@ -130,6 +132,9 @@ const struct option long_options[] =
 const struct option env_options[] =
 {
 {"IPERF_CRCUDP",     no_argument, NULL, 'a'},
+{"IPERF_CRCLOG",     no_argument, NULL, 'e'},
+
+
 {"IPERF_SINGLECLIENT",     no_argument, NULL, '1'},
 {"IPERF_BANDWIDTH",  required_argument, NULL, 'b'},
 {"IPERF_CLIENT",     required_argument, NULL, 'c'},
@@ -171,7 +176,7 @@ const struct option env_options[] =
 
 #define SHORT_OPTIONS()
 
-const char short_options[] = "a1b:c:df:hi:l:mn:o:p:rst:uvw:x:y:B:CDF:IL:M:NP:RS:T:UVWZ:";
+const char short_options[] = "ae1b:c:df:hi:l:mn:o:p:rst:uvw:x:y:B:CDF:IL:M:NP:RS:T:UVWZ:";
 
 /* -------------------------------------------------------------------
  * defaults
@@ -235,6 +240,7 @@ void Settings_Initialize( thread_Settings *main ) {
     //main->mSuggestWin = false;         // -W,  Suggest the window size.
 	
 	main->crc_udp		= false;        //默认不校验
+	main->crc_log		= false;        //默认不打印
 
 } // end Settings
 
@@ -307,15 +313,13 @@ void Settings_ParseCommandLine( int argc, char **argv, thread_Settings *mSetting
         fprintf( stderr, "%s: ignoring extra argument -- %s\n", argv[0], argv[i] );
     }
 
-#ifdef DBG_IN_UDP_CRC
 	if ( isUDP( mSettings ) ) {
 		if (mSettings->crc_udp == true){
-			fprintf( stderr, "crc udp open\n");
+			fprintf( stderr, "udp package crc check enable\n");
 		}else {
-			fprintf( stderr, "crc udp close\n");
+			fprintf( stderr, "udp package crc check disable\n");
 		}
 	}
-#endif
 } // end ParseCommandLine
 
 /* -------------------------------------------------------------------
@@ -330,6 +334,10 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
 		case 'a':  //crc udp
 			mExtSettings->crc_udp		= true;
 			break;
+		case 'e':  //crc log
+			mExtSettings->crc_log		= true;
+			break;
+
         case '1': // Single Client
             setSingleClient( mExtSettings );
             break;

@@ -711,6 +711,7 @@ int reporter_handle_packet( ReportHeader *reporthdr ) {
                 }
             }
             // never decrease datagramID (e.g. if we get an out-of-order packet) 
+			// 此处更新data->PacketID的值  只在此处更新
             if ( packet->packetID > data->PacketID ) {
                 data->PacketID = packet->packetID;
             }
